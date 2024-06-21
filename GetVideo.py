@@ -7,7 +7,7 @@ import matplotlib.pyplot as pl
 
 
 server_socket = socket.socket()
-server_socket.bind(('IP', 12534))
+server_socket.bind(('10.189.77.105', 12534))
 server_socket.listen(0)
 
 connection = server_socket.accept()[0].makefile('rb')
