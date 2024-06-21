@@ -7,7 +7,6 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-import sys
 import glob
 import argparse
 import numpy as np
@@ -16,7 +15,7 @@ import matplotlib as mpl
 import matplotlib.cm as cm
 
 import torch
-from torchvision import transforms, datasets
+from torchvision import transforms
 
 import networks
 from layers import disp_to_depth
