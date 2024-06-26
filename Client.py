@@ -1,32 +1,25 @@
 import socket
-import cv2
-import pickle
-import numpy as np
-import struct
-import zlib
+import network
 
-HOST = ''
-PORT = 8485
+ADDR = (input("IP: "), network.PORT)
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((socket.gethostname(), 1234))
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect(ADDR)
 
-data = b""
-payload_size = struct.calcsize(">L")
+def send(msg):
+    message = msg.encode(network.FORMAT)
+    msg_len = len(message)
+    send_length = str(msg_len).encode(network.FORMAT)
+    send_length += b' ' * (network.HEADER - len(send_length))
+    client.send(send_length)
+    client.send(message)
+    print(client.recv(2048).decode(network.FORMAT))
 
-while True:
-    while len(data) < payload_size:
-        data += s.recv(4096)
-    packed_msg_size = data[:payload_size]
-    data = data[payload_size:]
-    msg_size = struct.unpack(">L", packed_msg_size)[0]
+m = input("Send a message: ")
 
-    while len(data) < msg_size:
-        data += s.recv(4096)
-    frame_data = data[:msg_size]
-    data = data[msg_size:]
+while m != network.DC_NOTIF:
+    send(m)
+    m = input("Send a message: ")
 
-    frame = pickle.loads(frame_data, fix_imports=True, encoding="bytes")
-    frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
-    cv2.imshow('ImageWindow', frame)
-    cv2.waitKey(1)
+send(m)
+client.close()

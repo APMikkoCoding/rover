@@ -1,37 +1,44 @@
-import cv2
-import io
 import socket
-import struct
-import time
-import pickle
-import zlib
+import threading
+import network
 
-# Create a socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((socket.gethostbyname(socket.gethostname()), 8485))
-s.listen(5)
+SERVER = "192.168.43.105" # socket.gethostbyname(socket.gethostname())
+ADDR = (SERVER, network.PORT)
 
-print(socket.gethostbyname(socket.gethostname()))
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(ADDR)
 
-# Initialize the camera
-cam = cv2.VideoCapture(0)
-cam.set(3, 320)
-cam.set(4, 240)
+def handle_client(conn, addr):
+    print(f"[LOG]: New connection from {addr}.")
 
-img_counter = 0
-encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+    connected = True
+    while connected:
+        msg_len = conn.recv(network.HEADER).decode(network.FORMAT)
+        if msg_len:
+            msg_len = int(msg_len)
+            msg = conn.recv(msg_len).decode(network.FORMAT)
 
-while True:
-    client_socket, address = s.accept()
-    if client_socket != None:
-        print(f"Connection from {address} has been established!")
+            if msg == network.DC_NOTIF:
+                connected = False
+                print(f"[DISCONNECT]: {addr} has left.")
+                conn.send("Received.".encode(network.FORMAT))
+                continue
 
-        ret, frame = cam.read()
-        result, frame = cv2.imencode('.jpg', frame, encode_param)
-        data = pickle.dumps(frame, 0)
-        size = len(data)
-        print(f"{img_counter}: {size}")
-        client_socket.send(struct.pack(">L", size) + data)
-        img_counter += 1
+            conn.send("Received.".encode(network.FORMAT))
+            print(f"[{addr}]: {msg}")
 
-cam.release()
+
+
+    conn.close()
+
+def start():
+    server.listen()
+    print(f"[LOG]: Server started. Listening on port {network.PORT}.")
+    while True:
+        conn, addr = server.accept()
+        thread = threading.Thread(target=handle_client, args=(conn, addr))
+        thread.start()
+        print(f"[LOG]: There are currently {threading.active_count() - 1} active connections.")
+
+print(f"[LOG]: Server starting on port {network.PORT} at IPv4 address {SERVER}.")
+start()
