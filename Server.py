@@ -1,44 +1,64 @@
+from comm.move_data import MoveData
+from comm import network
 import socket
-import threading
-import network
+import pickle
+import cv2
 
-SERVER = "192.168.43.105" # socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, network.PORT)
+class Server:
+    def __init__(self):
+        self.connection = None
+        self.server_socket = None
+        self.SOCKET_ADDRESS = None
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(ADDR)
+    def step(self):
+        current_frame = self.receive_frame()
 
-def handle_client(conn, addr):
-    print(f"[LOG]: New connection from {addr}.")
+        # VVV PUT MOVE LOGIC IN THIS VVV
+        move = self.process_movement()
+        # ^^^ PUT MOVE LOGIC IN THIS ^^^
 
-    connected = True
-    while connected:
-        msg_len = conn.recv(network.HEADER).decode(network.FORMAT)
-        if msg_len:
-            msg_len = int(msg_len)
-            msg = conn.recv(msg_len).decode(network.FORMAT)
+        self.send_movement(move)
 
-            if msg == network.DC_NOTIF:
-                connected = False
-                print(f"[DISCONNECT]: {addr} has left.")
-                conn.send("Received.".encode(network.FORMAT))
-                continue
+        cv2.imshow("Stream", current_frame)
+        if cv2.waitKey(1) == ord('q'): quit(0)
 
-            conn.send("Received.".encode(network.FORMAT))
-            print(f"[{addr}]: {msg}")
+    def start(self):
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        host_name = socket.gethostname()
+        host_ip = socket.gethostbyname(host_name)  # "192.168.43.105"
 
+        print("IP: ", host_ip)
 
+        self.SOCKET_ADDRESS = (host_ip, network.PORT)
 
-    conn.close()
+        self.server_socket.bind(self.SOCKET_ADDRESS)
+        self.server_socket.listen(5)
+        print("Listening.")
 
-def start():
-    server.listen()
-    print(f"[LOG]: Server started. Listening on port {network.PORT}.")
-    while True:
-        conn, addr = server.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr))
-        thread.start()
-        print(f"[LOG]: There are currently {threading.active_count() - 1} active connections.")
+        self.connection, _ = self.server_socket.accept()
 
-print(f"[LOG]: Server starting on port {network.PORT} at IPv4 address {SERVER}.")
-start()
+    def receive_frame(self):
+        header = self.connection.recv(network.HEADER_LENGTH).decode(network.HEADER_FORMAT)
+
+        if header:
+            data = b''
+
+            while True:
+                data += self.connection.recv(int(header))
+                if data[-len(network.END):] == network.END: break
+
+            return pickle.loads(data)
+            # ^^^ This is the frame ^^^
+
+    def process_movement(self) -> MoveData:
+        return MoveData(5, 7) # Replace with real code
+
+    def send_movement(self, move_data):
+        pass
+        move_bytes = pickle.dumps(move_data)
+
+        header = str(len(move_bytes)).encode(network.HEADER_FORMAT)
+        header += b' ' * (network.HEADER_LENGTH - len(header))
+        self.connection.send(header)
+
+        self.connection.sendall(move_bytes + network.END)
