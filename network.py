@@ -1,4 +1,4 @@
-HEADER = 64
-PORT = 5050
-FORMAT = "utf-8"
-DC_NOTIF = "@{quit}"
+PORT = 4762
+HEADER_LENGTH = 128
+HEADER_FORMAT = "utf-8"
+END = b"stop"
